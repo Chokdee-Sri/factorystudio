@@ -234,7 +234,9 @@
     font-family:"IBM Plex Mono",monospace; font-size:12.5px; color:var(--ink); padding:6px 6px; text-align:right;
   }
   .task-name:focus, .task-select:focus, .task-time:focus{ background:var(--surface); border-color:var(--line); }
-  .add-task{
+  .lib-clear{color:var(--critical)!important}
+#btnAddLibTask,#btnClearLib{display:inline-flex}
+.add-task{
     align-self:flex-start; font-size:12px; color:var(--accent); background:none; border:none; cursor:pointer;
     padding:4px 2px; display:flex; align-items:center; gap:4px;
   }
@@ -914,6 +916,10 @@ body[data-noyama="1"] .mode[data-m="vsm"]{display:none}
       <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       เพิ่มงานในรายการหลัก
     </button>
+    <button id="btnClearLib" class="add-task lib-clear" type="button" title="ลบทุกงานในรายการหลัก และล้างค่า CT ของ Scenario นี้">
+      <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>ล้างค่าทั้งหมด</span>
+    </button>
   </section>
 
   <section class="card">
@@ -1351,22 +1357,9 @@ window.GS_CONFIG = {
   // The master task library: every atomic work step, entered once, with its
   // As-Is and To-Be cycle times side by side. Stations in any project pick
   // tasks from here by dropdown instead of retyping name+time.
-  var LIBRARY_SEED = [
-    { id:"lib-1",  no:1,  name:"MARKING ที่ฝา", predecessor:"-", downstream:8, ctAsis:10,   ctTobe:10,    solution:"-" },
-    { id:"lib-2",  no:2,  name:"ทดสอบ 20% เฉพาะงาน Bid และงาน Tx", predecessor:"-", downstream:8, ctAsis:33.2, ctTobe:26.56, solution:"จัด Layout และลดเวลาการทดสอบลง 20% ไม่ต้องใช้พนักงานสามารถทำ Auto ได้" },
-    { id:"lib-3",  no:3,  name:"ตัดสายไฟ", predecessor:"-", downstream:8, ctAsis:5,    ctTobe:5,     solution:"-" },
-    { id:"lib-4",  no:4,  name:"ย้ำหางปลา", predecessor:"-", downstream:8, ctAsis:13.2, ctTobe:6.6,   solution:"หากใช้เครื่อง Auto ที่ย้ำต่อจากเครื่องตัดสายได้เลย จะลดเวลารวมของกระบวนการนี้ได้" },
-    { id:"lib-5",  no:5,  name:"ปั่นสายไฟ", predecessor:"4", downstream:4, ctAsis:6.2,  ctTobe:4.34,  solution:"1.เปลี่ยนเครื่องปั่นสายไฟใหม่ ปัจจุบันใช้ไฟควันเสียเวลามาก" },
-    { id:"lib-6",  no:6,  name:"ชุบดีบุก", predecessor:"4", downstream:4, ctAsis:2.4,  ctTobe:1.68,  solution:"จัด Layout/หาเครื่องที่ต่อเนื่องจากงานอื่นได้" },
-    { id:"lib-7",  no:7,  name:"ใส่ U-clamp", predecessor:"4", downstream:4, ctAsis:15,   ctTobe:10.5,  solution:"ทำเครื่องมือที่สามารถขันพร้อมกันได้ 2 ตัว" },
-    { id:"lib-8",  no:8,  name:"ประกอบ part ฝังหัวและท้าย", predecessor:"5", downstream:3, ctAsis:78, ctTobe:39, solution:"จัด Layout ให้หยิบพาร์ทได้ไวขึ้น" },
-    { id:"lib-9",  no:9,  name:"ทดสอบ ROUTINE TEST", predecessor:"6", downstream:2, ctAsis:78, ctTobe:39, solution:"หาเครื่องใหม่/Modify เพื่อลดเวลา setup และให้สามารถเทสพร้อมกันได้ทุกตัว" },
-    { id:"lib-10", no:10, name:"นำชิ้นงานออกจากเครื่องทดสอบ Uref & PD วางลงบนโต๊ะ / หยิบวางบนเครื่องทดสอบ Insulation resistance / กด Start / ทดสอบ 30s / หยิบชิ้นงานออก", predecessor:"7", downstream:1, ctAsis:27, ctTobe:18.9, solution:"ทำ conveyor auto ให้สามารถ test insulation ต่อเนื่องลดเวลา load-unload" },
-    { id:"lib-11", no:11, name:"ขึ้นรูปกล่อง", predecessor:"8", downstream:0, ctAsis:9,  ctTobe:9,  solution:"-" },
-    { id:"lib-12", no:12, name:"หยิบ Mounting bracket, bird guard ใส่กล่อง / หยิบชิ้นงานใส่กล่อง", predecessor:"8", downstream:0, ctAsis:19, ctTobe:19, solution:"-" },
-    { id:"lib-13", no:13, name:"เครื่องซีลอัตโนมัติ", predecessor:"8", downstream:0, ctAsis:10, ctTobe:10, solution:"-" },
-    { id:"lib-14", no:14, name:"Conveyor ไหลมาถวายพาเลท", predecessor:"8", downstream:0, ctAsis:7,  ctTobe:7,  solution:"-" }
-  ];
+  // รายการงานหลักเริ่มต้น: แถวว่าง 1 แถว (ไม่มีข้อมูลตัวอย่าง)
+  function blankLibTask(){ return { id:'lib-'+Math.random().toString(36).slice(2,9), no:1, name:'', predecessor:'', downstream:'', ctAsis:'', ctTobe:'', solution:'' }; }
+  var LIBRARY_SEED = [ blankLibTask() ];
 
   var EXAMPLE_ASIS = {
     name: "ก่อนปรับปรุง (As-Is)",
@@ -1393,11 +1386,14 @@ window.GS_CONFIG = {
       { name:"Auto Packing", elements:[ {taskId:"lib-12"}, {taskId:"lib-13"}, {taskId:"lib-14"} ] }
     ]
   };
+  // ค่าเริ่มต้นของ Scenario ใหม่: ว่างทั้งหมด (ไม่มีตัวเลขตัวอย่าง)
   var BLANK_TEMPLATE = {
-    name: "โปรเจกต์ใหม่",
-    taktTime: 45,
+    name: "",
+    taktTime: 0,
     timeSource: "asis",
-    stations: [ { name:"สถานี 1", elements:[ {taskId:null, name:"", time:0} ] } ]
+    demand: "", workTime: "", workUnit: "hr", unit: "sec",
+    cts: {},
+    stations: [ { name:"", people:1, elements:[ {taskId:null, name:"", time:0} ] } ]
   };
 
   /* ---------------- state ---------------- */
@@ -1409,7 +1405,7 @@ window.GS_CONFIG = {
     loaded: false,
     finId: null,         // id of the current "investment analysis" project
     finName: 'โปรเจกต์การลงทุนใหม่',
-    project: clone(EXAMPLE_ASIS),
+    project: clone(BLANK_TEMPLATE),
     dirty: false,
     projectsCache: [],   // [{id, name, taktTime, stations, updatedAt}]
     dbReady: false,
@@ -1821,7 +1817,7 @@ window.GS_CONFIG = {
       var badge = document.createElement('div');
       badge.className = 'station-badge'; badge.textContent = si+1;
       var nameInput = document.createElement('input');
-      nameInput.className = 'station-name'; nameInput.value = st.name || '';
+      nameInput.className = 'station-name'; nameInput.value = st.name || ''; nameInput.placeholder = 'สถานี ' + (si+1);
       nameInput.setAttribute('id', 'st-name-' + si);
       nameInput.addEventListener('input', function(){
         st.name = nameInput.value;
@@ -1977,7 +1973,7 @@ window.GS_CONFIG = {
     addStation.className = 'add-station'; addStation.type = 'button';
     addStation.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>เพิ่มสถานีใหม่</span>';
     addStation.addEventListener('click', function(){
-      state.project.stations.push({ name:'สถานี ' + (state.project.stations.length+1), people:1, elements:[{taskId:null, name:'', time:0}] });
+      state.project.stations.push({ name:'', people:1, elements:[{taskId:null, name:'', time:0}] });
       onStructuralEdit();
     });
     row.appendChild(addStation);
@@ -1986,9 +1982,10 @@ window.GS_CONFIG = {
   function ctCell(tr, task){
     var td = document.createElement('td'), inp = document.createElement('input');
     inp.className = 'lib-input mono'; inp.type = 'number'; inp.step = 'any'; inp.min = '0'; inp.inputMode = 'decimal';
-    inp.value = dispVal(state.project.cts[task.id] || 0);
+    var ct0 = state.project.cts[task.id];
+    inp.value = (ct0 === undefined || ct0 === null || ct0 === '') ? '' : dispVal(ct0);
     inp.addEventListener('input', function(){
-      state.project.cts[task.id] = fromDisp(clampNum(inp.value, 0));
+      if (inp.value === '') delete state.project.cts[task.id]; else state.project.cts[task.id] = fromDisp(clampNum(inp.value, 0));
       relinkProjectElements(state.project);
       markDirty(); renderStats(); renderChart(); renderEditor(); scheduleAutosave();
     });
@@ -1997,6 +1994,7 @@ window.GS_CONFIG = {
 
   /* ---------------- rendering: task library table ---------------- */
   function renderLibraryTable(){
+    if (!state.library.length) state.library.push(blankLibTask());
     var body = document.getElementById('libTableBody');
     body.innerHTML = '';
 
@@ -2028,6 +2026,9 @@ window.GS_CONFIG = {
     var DOWN_REVERSE = true;
     function applyDownstreamColors(){
       var inputs = Array.prototype.slice.call(document.querySelectorAll('#libTableBody .lib-down-input'));
+      if (!inputs.length) return;
+      inputs.forEach(function(i){ i.style.background = ''; i.style.color = ''; i.style.fontWeight = ''; });
+      inputs = inputs.filter(function(i){ return i.value !== ''; });
       if (!inputs.length) return;
       var vals = inputs.map(function(i){ return parseFloat(i.value) || 0; });
       var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
@@ -2216,6 +2217,8 @@ window.GS_CONFIG = {
   }
   function scenarioFromDoc(doc){
     var base = clone(BLANK_TEMPLATE), pk = pickProj(doc);
+    // Scenario เก่าที่ยังไม่มีช่องเหล่านี้ ให้ normalizeProject คำนวณจาก Takt เดิมเหมือนเดิม
+    ['demand','workTime','cts'].forEach(function(k){ if (doc[k] === undefined || doc[k] === null) delete base[k]; });
     Object.keys(pk).forEach(function(k){ if (pk[k] !== undefined && pk[k] !== null) base[k] = clone(pk[k]); });
     if (!Array.isArray(base.stations) || !base.stations.length) base.stations = clone(BLANK_TEMPLATE.stations);
     base.name = doc.name || 'ไม่มีชื่อ';
@@ -3571,7 +3574,7 @@ window.GS_CONFIG = {
     }
     if (e.target.closest('[data-vxst]')){
       var ps = state.project;
-      ps.stations.push({ name: 'สถานี ' + (ps.stations.length + 1), people: 1, elements: [{ taskId: null, name: '', time: 0 }] });
+      ps.stations.push({ name: '', people: 1, elements: [{ taskId: null, name: '', time: 0 }] });
       try { document.activeElement.blur(); } catch(err){}
       onStructuralEdit(); return;
     }
@@ -5437,7 +5440,7 @@ window.GS_CONFIG = {
   }
   function promptNewScenario(){
     var n = wsScenarios(state.wsId).length + 1;
-    askName('เพิ่ม Scenario', 'เช่น As-Is, To-Be 1', 'Scenario ' + n, 'สร้างและเปิดเว็บแอป', function(name, creator, parts){
+    askName('เพิ่ม Scenario', 'เช่น As-Is, To-Be 1 (ว่างไว้ = Scenario ' + n + ')', '', 'สร้างและเปิดเว็บแอป', function(name, creator, parts){
       createScenario(name || ('Scenario ' + n), false, parts);
     }, { parts: true });
   }
@@ -5496,8 +5499,29 @@ window.GS_CONFIG = {
     onStructuralEdit();
   });
 
+  // ล้างรายการงานหลักทั้งหมด (กด 2 ครั้งเพื่อยืนยัน)
+  document.getElementById('btnClearLib').addEventListener('click', function(){
+    var btn = this, lbl = btn.querySelector('span');
+    if (btn.dataset.armed !== '1'){
+      btn.dataset.armed = '1'; lbl.textContent = 'กดอีกครั้งเพื่อยืนยันล้างทั้งหมด';
+      setTimeout(function(){ if (btn.dataset.armed === '1'){ btn.dataset.armed = ''; lbl.textContent = 'ล้างค่าทั้งหมด'; } }, 3000);
+      return;
+    }
+    btn.dataset.armed = ''; lbl.textContent = 'ล้างค่าทั้งหมด';
+    var gone = {}; state.library.forEach(function(t){ gone[t.id] = 1; });
+    state.library = [];
+    state.project.cts = {};
+    // งานในสถานีที่อ้างอิงรายการหลัก → เอาออก (เหลือแถวว่าง 1 แถวต่อสถานี)
+    state.project.stations.forEach(function(st){
+      st.elements = st.elements.filter(function(el){ return !(el.taskId && gone[el.taskId]); });
+      if (!st.elements.length) st.elements.push({ taskId:null, name:'', time:0 });
+    });
+    markDirty(); scheduleAutosave();
+    onLibraryStructuralEdit();
+  });
+
   document.getElementById('btnAddLibTask').addEventListener('click', function(){
-    state.library.push({ id:'lib-'+uid(), predecessor:'-', downstream:0, name:'งานใหม่', ctAsis:0, ctTobe:0, solution:'-' });
+    state.library.push({ id:'lib-'+uid(), predecessor:'', downstream:'', name:'', ctAsis:'', ctTobe:'', solution:'' });
     onLibraryStructuralEdit();
   });
 
@@ -5599,10 +5623,7 @@ window.GS_CONFIG = {
     return flag.get().then(function(fs){
       if (fs.exists) return;
       var now = nowIso();
-      var examples = [
-        { id:'example-asis', data: EXAMPLE_ASIS },
-        { id:'example-tobe1', data: EXAMPLE_TOBE1 }
-      ];
+      var examples = [];   // เริ่มต้นแบบว่าง: ไม่สร้าง Scenario ตัวอย่าง
       return Promise.all(examples.map(function(ex){
         var ref = db.collection('projects').doc(ex.id);
         return ref.get().then(function(snap){
@@ -5670,7 +5691,7 @@ window.GS_CONFIG = {
         var libSnap = results[1];
         if (libSnap && libSnap.exists){
           var libData = libSnap.data();
-          if (libData && Array.isArray(libData.tasks) && libData.tasks.length) state.library = libData.tasks;
+          if (libData && Array.isArray(libData.tasks)) state.library = libData.tasks;
         }
         return adoptOrphans(ns);
       }).then(function(){
@@ -5712,10 +5733,7 @@ window.GS_CONFIG = {
     document.getElementById('btnSaveAs').title = 'ออฟไลน์: จะเก็บไว้ชั่วคราวในเซสชันนี้เท่านั้น';
     var now = nowIso();
     state.workspaces = [{ id: DEFAULT_WS_ID, name: DEFAULT_WS_NAME, createdAt: now, updatedAt: now }];
-    state.projectsCache = [
-      Object.assign({ id:'example-asis', kind:'scenario', projectId: DEFAULT_WS_ID, finJson:'', updatedAt: now }, clone(EXAMPLE_ASIS)),
-      Object.assign({ id:'example-tobe1', kind:'scenario', projectId: DEFAULT_WS_ID, finJson:'', updatedAt: now }, clone(EXAMPLE_TOBE1))
-    ];
+    state.projectsCache = [];
     state.loaded = true;
     if (state.page === 'home') renderHome();
     else if (state.page === 'ws') renderWs();
@@ -5980,7 +5998,7 @@ window.GS_CONFIG = {
       state.projectsCache = r[0].docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
       state.workspaces = r[1].docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
       var lib = r[2].docs.filter(function(d){ return d.id === 'library'; })[0];
-      if (lib){ var ld = lib.data(); if (ld && Array.isArray(ld.tasks) && ld.tasks.length) state.library = ld.tasks; }
+      if (lib){ var ld = lib.data(); if (ld && Array.isArray(ld.tasks)) state.library = ld.tasks; }
       if (state.wsId && !curWs()){ state.wsId = null; showPage('home'); return; }
       if (state.page === 'home') renderHome();
       else if (state.page === 'ws') renderWs();
@@ -6006,7 +6024,7 @@ window.GS_CONFIG = {
     state.projectsCache = rows('projects');
     state.workspaces = rows('workspaces');
     var lib = (data.meta || []).filter(function(d){ return d.id === 'library'; })[0];
-    if (lib && lib.data && Array.isArray(lib.data.tasks) && lib.data.tasks.length) state.library = lib.data.tasks;
+    if (lib && lib.data && Array.isArray(lib.data.tasks)) state.library = lib.data.tasks;
     if (state.wsId && !curWs()){ state.wsId = null; showPage('home'); return; }
     if (state.page === 'home') renderHome();
     else if (state.page === 'ws') renderWs();
@@ -6069,9 +6087,9 @@ const xrow=(n,val)=>`<div class="f x"><input type="text" data-xn value="${escA(n
 const xs=(c='inv')=>[...document.querySelectorAll('#'+c+' [data-xn]')].map(n=>[n.value.trim()||'รายการเพิ่มเติม',+n.parentElement.querySelector('[data-xv]').value||0]);
 const ANN=[['ค่าบำรุงรักษา',0],['ค่าเปลี่ยนอะไหล่สิ้นเปลือง',0],['ค่าช่างฝีมือ',0]];
 $('inv').innerHTML=INV.map((n,i)=>fld('i'+i,n,INV0[i])).join('')+`<div id="invX"></div><button type="button" id="invAdd" class="addx">+ เพิ่ม</button><div class="row"><b>รวมเงินลงทุน</b><b id="invT">0</b></div>`;
-$('inv').addEventListener('click',e=>{const t=e.target;if(t.id==='invAdd'){$('invX').insertAdjacentHTML('beforeend',xrow('',0));const n=$('invX').lastElementChild.querySelector('[data-xn]');n.focus();calc();edited()}else if(t.hasAttribute&&t.hasAttribute('data-xdel')){t.parentElement.remove();calc();edited()}});
+$('inv').addEventListener('click',e=>{const t=e.target;if(t.id==='invAdd'){$('invX').insertAdjacentHTML('beforeend',xrow('',''));const n=$('invX').lastElementChild.querySelector('[data-xn]');n.focus();calc();edited()}else if(t.hasAttribute&&t.hasAttribute('data-xdel')){t.parentElement.remove();calc();edited()}});
 $('ann').innerHTML=ANN.map((x,i)=>fld('a'+i,x[0],x[1],'บาท/ปี')).join('')+`<div id="annX"></div><button type="button" id="annAdd" class="addx">+ เพิ่ม</button><div class="row"><b>รวมค่าใช้จ่ายประจำปี</b><b id="annT">0</b></div>`;
-$('ann').addEventListener('click',e=>{const t=e.target;if(t.id==='annAdd'){$('annX').insertAdjacentHTML('beforeend',xrow('',0));$('annX').lastElementChild.querySelector('[data-xn]').focus();calc();edited()}else if(t.hasAttribute&&t.hasAttribute('data-xdel')){t.parentElement.remove();calc();edited()}});
+$('ann').addEventListener('click',e=>{const t=e.target;if(t.id==='annAdd'){$('annX').insertAdjacentHTML('beforeend',xrow('',''));$('annX').lastElementChild.querySelector('[data-xn]').focus();calc();edited()}else if(t.hasAttribute&&t.hasAttribute('data-xdel')){t.parentElement.remove();calc();edited()}});
 $('rptInfo').innerHTML=`<div class="f txt"><label for="custName">ชื่อลูกค้า / บริษัท</label><input id="custName" type="text" value="" placeholder="ไม่บังคับ"></div><div class="f txt"><label for="prepBy">ผู้จัดทำ</label><input id="prepBy" type="text" value="" placeholder="ไม่บังคับ"></div>`;
 const mini=(id,val,l)=>`<input id="${id}" class="mini" type="number" step="any" value="${val}" aria-label="${l}">`,
  rrow=(id,l,u,note,hl)=>`<div class="f w"><div><label for="${id}">${l}</label>${note?`<span class="lnote">${note}</span>`:''}</div><input id="${id}" type="text" class="ro${hl?' hl':''}" readonly tabindex="-1"><span class="u">${u}</span></div>`;
@@ -6086,10 +6104,10 @@ const P=[
  {n:'Surge Arrester',rmA:623.593125,dlA:313/3600,drA:141.8,ohA:313,orA:191.41,outA:45000,rmB:623.593125,dlB:313/3600,drB:141.8,ohB:313,orB:206.17,outB:45000},
  {n:'Drop Fuse Cutout',rmA:1555.6805,dlA:441.03/3600,drA:141.8,ohA:441.03,orA:191.41,outA:50000,rmB:1555.6805,dlB:335.82/3600,drB:141.8,ohB:335.82,orB:206.17,outB:50000}];
 const PF=[['rm','RM','บาท/ชิ้น'],['dl','DL (ชม.)','ชม./ชิ้น'],['dr','rate DL',''],['dc','DL (บาท)','บาท/ชิ้น'],['oh','OH','วินาที/ชิ้น'],['or','rate OH',''],['out','Output','ชิ้น/ปี']];
-function renderP(){$('prods').innerHTML=P.map((p,i)=>{const U=x=>x[2]?`<span class="u" style="grid-column:1/-1;margin:-4px 0 4px;font-size:11px">${x[2]}</span>`:'',col=s=>PF.map(x=>{const k=x[0];if(k=='dc')return `<div class="f"><label>${x[1]}</label><input type="number" class="ro" readonly tabindex="-1" data-dc="${i}${s}" aria-label="${x[1]} (คำนวณอัตโนมัติ)">${U(x)}</div>`;const val=k=='dl'?+(+p[k+s]).toFixed(6):p[k+s];return `<div class="f"><label>${x[1]}</label><input type="number" step="any" data-p="${i}" data-f="${k+s}" value="${val}">${U(x)}</div>`}).join('')+`<div class="sumb"><div class="f"><label>ต้นทุนรวม</label><input type="text" class="ro hl" readonly tabindex="-1" data-tc="${i}${s}" aria-label="ต้นทุนรวม"><span class="u" style="grid-column:1/-1;margin:-4px 0 4px;font-size:11px">บาท/ชิ้น</span></div><div class="f"><label>ต้นทุนรวมทั้งหมด</label><input type="text" class="ro hl" readonly tabindex="-1" data-ta="${i}${s}" aria-label="ต้นทุนรวมทั้งหมด"><span class="u" style="grid-column:1/-1;margin:-4px 0 4px;font-size:11px">บาท/ปี</span></div></div>`;
- return `<div class="${i?'pr':''}"><div style="display:flex;gap:8px;margin-bottom:6px"><input type="text" data-p="${i}" data-f="n" value="${p.n}" aria-label="ชื่อผลิตภัณฑ์"><button class="btn btn-ghost" data-del="${i}" style="margin:0">ลบ</button></div><div class="two"><div><h3>As is (เดิม)</h3>${col('A')}</div><div><h3>To be (ใหม่)</h3>${col('B')}</div></div></div>`}).join('')}
+function renderP(){$('prods').innerHTML=P.map((p,i)=>{const U=x=>x[2]?`<span class="u" style="grid-column:1/-1;margin:-4px 0 4px;font-size:11px">${x[2]}</span>`:'',col=s=>PF.map(x=>{const k=x[0];if(k=='dc')return `<div class="f"><label>${x[1]}</label><input type="number" class="ro" readonly tabindex="-1" data-dc="${i}${s}" aria-label="${x[1]} (คำนวณอัตโนมัติ)">${U(x)}</div>`;const raw=p[k+s],val=raw==null||raw===''?'':k=='dl'?+(+raw).toFixed(6):raw;return `<div class="f"><label>${x[1]}</label><input type="number" step="any" data-p="${i}" data-f="${k+s}" value="${val}">${U(x)}</div>`}).join('')+`<div class="sumb"><div class="f"><label>ต้นทุนรวม</label><input type="text" class="ro hl" readonly tabindex="-1" data-tc="${i}${s}" aria-label="ต้นทุนรวม"><span class="u" style="grid-column:1/-1;margin:-4px 0 4px;font-size:11px">บาท/ชิ้น</span></div><div class="f"><label>ต้นทุนรวมทั้งหมด</label><input type="text" class="ro hl" readonly tabindex="-1" data-ta="${i}${s}" aria-label="ต้นทุนรวมทั้งหมด"><span class="u" style="grid-column:1/-1;margin:-4px 0 4px;font-size:11px">บาท/ปี</span></div></div>`;
+ return `<div class="${i?'pr':''}"><div style="display:flex;gap:8px;margin-bottom:6px"><input type="text" data-p="${i}" data-f="n" value="${escA(p.n||'')}" placeholder="ชื่อผลิตภัณฑ์" aria-label="ชื่อผลิตภัณฑ์"><button class="btn btn-ghost" data-del="${i}" style="margin:0">ลบ</button></div><div class="two"><div><h3>As is (เดิม)</h3>${col('A')}</div><div><h3>To be (ใหม่)</h3>${col('B')}</div></div></div>`}).join('')}
 const edited=()=>{if(!loading&&window.StudioCore)window.StudioCore.finEdited()};
-$('addP').onclick=()=>{P.push({n:'ผลิตภัณฑ์ใหม่',rmA:0,dlA:0,drA:141.8,ohA:0,orA:191.41,outA:0,rmB:0,dlB:0,drB:141.8,ohB:0,orB:206.17,outB:0});renderP();calc();edited()};
+$('addP').onclick=()=>{P.push({n:'',rmA:null,dlA:null,drA:null,ohA:null,orA:null,outA:null,rmB:null,dlB:null,drB:null,ohB:null,orB:null,outB:null});renderP();calc();edited()};
 $('prods').addEventListener('click',e=>{if(e.target.dataset.del!=null){P.splice(+e.target.dataset.del,1);renderP();calc();edited()}});
 $('useW').onclick=()=>{$('rate').value=v('wv');calc();edited()};
 let LAST=null,loading=false;
@@ -6143,14 +6161,17 @@ function calc(){
 
  LAST={prows,sa,sb,adj,prod,lab0,lab,ben,ann,net,N,r,fr,rr,c,inv,NPV:nv,IRR:ir,MIRR:mirr(c,fr,rr),DPB:pback(c,r),PB:pback(c,0)};
 }
-$('viewFin').addEventListener('input',e=>{const t=e.target;if(t.dataset.p!=null){P[+t.dataset.p][t.dataset.f]=t.dataset.f=='n'?t.value:+t.value||0}calc();edited()});
+$('viewFin').addEventListener('input',e=>{const t=e.target;if(t.dataset.p!=null){P[+t.dataset.p][t.dataset.f]=t.dataset.f=='n'?t.value:(t.value===''?null:+t.value||0)}calc();edited()});
 renderP();calc();
 {const tg=$('cfTgl'),bd=$('cfBody'),sw=()=>{const o=bd.hidden;bd.hidden=!o;tg.classList.toggle('open',o);tg.setAttribute('aria-expanded',o);tg.querySelector('.chev').textContent=o?'▼':'▶'};tg.addEventListener('click',sw);tg.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();sw()}})}
 
 /* ---- snapshot / restore (used by the project list in the top bar) ---- */
 const LABIDS=['lo','ln','lw','lh','ld','lm','lf'],RTIDS=['yrs','rate','fin','rei'];
-function snap(){return{v:2,inv:INV.map((_,i)=>v('i'+i)),invX:xs(),ann:ANN.map((_,i)=>v('a'+i)),annX:xs('ann'),lab:LABIDS.map(v),rt:RTIDS.map(v),wacc:v('wv'),P:JSON.parse(JSON.stringify(P)),noDL:$('noDL').checked,cust:$('custName').value,prep:$('prepBy').value}}
+const vb=id=>$(id).value===''?'':v(id);
+function snap(){return{v:2,inv:INV.map((_,i)=>vb('i'+i)),invX:xs(),ann:ANN.map((_,i)=>vb('a'+i)),annX:xs('ann'),lab:LABIDS.map(vb),rt:RTIDS.map(vb),wacc:vb('wv'),P:JSON.parse(JSON.stringify(P)),noDL:$('noDL').checked,cust:$('custName').value,prep:$('prepBy').value}}
 const DEF=snap();
+// ฟอร์มว่างสำหรับ Scenario ใหม่
+const BLANK={v:2,inv:INV.map(()=>''),invX:[],ann:ANN.map(()=>''),annX:[],lab:LABIDS.map(()=>''),rt:RTIDS.map(()=>''),wacc:'',P:[],noDL:false,cust:'',prep:''};
 function setSnap(d){
  if(!d||typeof d!=='object')d=DEF;
  loading=true;
@@ -6159,7 +6180,7 @@ function setSnap(d){
   let iv=d.inv||[],ix=d.invX;if(!ix&&iv.length>3){ix=[[1,'ค่าติดตั้ง'],[4,'Production Monitoring System'],[5,'Building Management System'],[6,'อื่นๆ (เช่น Exoskeleton)']].filter(p=>+iv[p[0]]).map(p=>[p[1],iv[p[0]]]);iv=[iv[0],iv[2],iv[3]]}
    iv.slice(0,3).forEach((x,i)=>sv('i'+i,x));$('invX').innerHTML=(ix||[]).map(x=>xrow(x[0],x[1])).join('');let av=d.ann||[],ax=d.annX;if(!ax&&av.length>3){ax=+av[3]?[['อื่นๆ',av[3]]]:[]}av.slice(0,3).forEach((x,i)=>sv('a'+i,x));$('annX').innerHTML=(ax||[]).map(x=>xrow(x[0],x[1])).join('');
   (d.lab||[]).forEach((x,i)=>sv(LABIDS[i],x));(d.rt||[]).forEach((x,i)=>sv(RTIDS[i],x));sv('wv',d.wacc==null?10:d.wacc);
-  if(Array.isArray(d.P)){P.splice(0,P.length,...JSON.parse(JSON.stringify(d.P)));if(!(d.v>=2))P.forEach(p=>{p.dlA=(+p.dlA||0)/3600;p.dlB=(+p.dlB||0)/3600});P.forEach(p=>{if(p.orB==null)p.orB=(+p.orA||0)+(d.ohx==null?14.76:+d.ohx)});renderP()}
+  if(Array.isArray(d.P)){P.splice(0,P.length,...JSON.parse(JSON.stringify(d.P)));if(!(d.v>=2))P.forEach(p=>{p.dlA=(+p.dlA||0)/3600;p.dlB=(+p.dlB||0)/3600});P.forEach(p=>{if(p.orB===undefined)p.orB=(+p.orA||0)+(d.ohx==null?14.76:+d.ohx)});renderP()}
   $('noDL').checked=!!d.noDL;$('custName').value=d.cust||'';$('prepBy').value=d.prep||'';
   calc();
  }finally{loading=false}
@@ -6283,7 +6304,7 @@ $('btnRpt').addEventListener('click',()=>{
 var M=document.querySelectorAll('.mode');
 function setMode(m){if(m=='vsm'){setMode('yama');setTimeout(function(){var e=document.getElementById('vsmSection');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},80);return}document.body.dataset.mode=m;M.forEach(function(b){b.classList.toggle('on',b.dataset.m==m)});try{localStorage.setItem('studioMode',m)}catch(e){}if(m!='fin')window.dispatchEvent(new Event('resize'));if(window.StudioCore)window.StudioCore.modeChanged()}
 M.forEach(function(b){b.onclick=function(){setMode(b.dataset.m)}});
-window.FinApp={last:()=>LAST,pdf:renderPdf,esc,get:snap,set:setSnap,reset:()=>setSnap(DEF),setMode:setMode,metrics:arr=>{const cur=snap();try{return arr.map(d=>{setSnap(d||DEF);const L=LAST||{};return{prod:L.prod,lab:L.lab,inv:L.inv,ben:L.ben,net:L.net,ann:L.ann,NPV:L.NPV,IRR:L.IRR,MIRR:L.MIRR,DPB:L.DPB,PB:L.PB,r:L.r,N:L.N,crit:crit(L).map(x=>({k:x.k,ok:x.ok,t:x.t,d:x.d}))}})}finally{setSnap(cur)}}};
+window.FinApp={last:()=>LAST,pdf:renderPdf,esc,get:snap,set:setSnap,reset:()=>setSnap(BLANK),setMode:setMode,metrics:arr=>{const cur=snap();try{return arr.map(d=>{setSnap(d||DEF);const L=LAST||{};return{prod:L.prod,lab:L.lab,inv:L.inv,ben:L.ben,net:L.net,ann:L.ann,NPV:L.NPV,IRR:L.IRR,MIRR:L.MIRR,DPB:L.DPB,PB:L.PB,r:L.r,N:L.N,crit:crit(L).map(x=>({k:x.k,ok:x.ok,t:x.t,d:x.d}))}})}finally{setSnap(cur)}}};
 var sm='yama';try{sm=localStorage.getItem('studioMode')||'yama'}catch(e){}setMode(sm=='vsm'?'yama':sm);
 })();
 </script>

@@ -1078,8 +1078,8 @@ body[data-noyama="1"] .mode[data-m="vsm"]{display:none}
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 /* =====================================================================
    Google Sheets backend (Apps Script Web App) — ตั้งค่าตรงนี้
@@ -1286,23 +1286,51 @@ window.GS_CONFIG = {
     } catch(e){}
   }
 
+  /* ---------- local snapshot: เปิดแอปครั้งถัดไปแสดงข้อมูลได้ทันที ---------- */
+  var CACHE_KEY = 'gsBootCache:' + URL_, freshFns = [];
+  function readCache(){
+    try { var t = localStorage.getItem(CACHE_KEY); var o = t ? JSON.parse(t) : null; return o && o.data ? o.data : null; } catch(e){ return null; }
+  }
+  function writeCache(data){
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), data: data })); } catch(e){}
+  }
+  function loadBoot(data){
+    boot = {};
+    Object.keys(data || {}).forEach(function(c){
+      boot[c] = {};
+      (data[c] || []).forEach(function(d){ boot[c][d.id] = { data: d.data, savedAt: d.savedAt }; });
+    });
+  }
+
   window.GSDB = {
     enabled: function(){ return !!URL_; },
     connect: function(){
       status.state = 'connecting'; emit();
-      return call({ op: 'bootstrap' }).then(function(j){
-        boot = {};
-        Object.keys(j.data || {}).forEach(function(c){
-          boot[c] = {};
-          (j.data[c] || []).forEach(function(d){ boot[c][d.id] = { data: d.data, savedAt: d.savedAt }; });
-        });
+      var cached = readCache();
+      var live = call({ op: 'bootstrap' }).then(function(j){
+        var data = j.data || {};
+        writeCache(data);
+        return data;
       }, function(err){
         // Apps Script รุ่นเก่ายังไม่มีคำสั่ง bootstrap → ใช้วิธีเดิม
-        if (/unknown_op/.test(String(err && err.message))) return call({ op: 'ping' });
+        if (/unknown_op/.test(String(err && err.message))) return call({ op: 'ping' }).then(function(){ return null; });
         throw err;
-      }).then(function(){ status.state = 'connected'; status.lastOk = new Date(); emit(); return ns; },
+      });
+      if (cached){
+        // มีข้อมูลจากครั้งก่อน → แสดงทันที (ไม่ต้องรอ Apps Script) แล้วอัปเดตจากชีตเบื้องหลัง
+        loadBoot(cached);
+        live.then(function(data){
+          status.state = queue.length || inflight.length ? 'saving' : 'saved'; status.lastOk = new Date(); status.error = ''; emit();
+          if (data) freshFns.forEach(function(fn){ try { fn(data); } catch(e){ console.error(e); } });
+        }, function(err){ status.state = 'error'; status.error = String(err && err.message || err); emit(); });
+        status.state = 'connected'; emit();
+        return Promise.resolve(ns);
+      }
+      return live.then(function(data){ if (data) loadBoot(data); status.state = 'connected'; status.lastOk = new Date(); emit(); return ns; },
         function(err){ status.state = 'failed'; status.error = String(err && err.message || err); emit(); throw err; });
     },
+    onFresh: function(fn){ freshFns.push(fn); },
+    saveCache: function(data){ writeCache(data); },
     endBoot: function(){ boot = null; },
     loading: function(msg){ status.state = 'loading'; status.error = msg || ''; emit(); },
     busy: function(){ return running || queue.length > 0 || inflight.length > 0; },
@@ -2398,10 +2426,18 @@ window.GS_CONFIG = {
       openWorkspace(lid);
       return;
     }
-    dbNs.collection('workspaces').add(data).then(function(ref){
-      state.workspaces.unshift(Object.assign({ id: ref.id }, data));
-      openWorkspace(ref.id);
-    }).catch(function(){ alert('สร้างโปรเจกต์ไม่สำเร็จ ลองอีกครั้ง'); });
+    // สร้างทันที (optimistic): เปิดโปรเจกต์ได้เลย แล้วค่อยบันทึกลงชีตเบื้องหลัง
+    var id = dbCreate('workspaces', data, 'โปรเจกต์');
+    state.workspaces.unshift(Object.assign({ id: id }, data));
+    openWorkspace(id);
+  }
+  // บันทึกเอกสารใหม่แบบไม่รอเซิร์ฟเวอร์: สร้าง id ในเครื่อง แล้วเข้าคิวส่ง (คิวลองส่งซ้ำเองถ้าเน็ต/ชีตช้า)
+  function dbCreate(coll, data, label){
+    var id = 'gs' + Date.now().toString(36) + uid();
+    dbNs.collection(coll).doc(id).set(data).catch(function(err){
+      console.warn('บันทึก' + label + 'ใหม่ยังไม่สำเร็จ ระบบจะลองส่งอีกครั้ง:', err);
+    });
+    return id;
   }
   function deleteWorkspace(id){
     var sc = wsScenarios(id);
@@ -5426,8 +5462,7 @@ window.GS_CONFIG = {
       syncProjectSelect();
     }
     if (!dbNs){ done('local-' + uid()); return; }
-    dbNs.collection('projects').add(payload).then(function(ref){ done(ref.id); })
-      .catch(function(){ alert('สร้าง Scenario ไม่สำเร็จ ลองอีกครั้ง'); });
+    done(dbCreate('projects', payload, 'Scenario'));
   }
   function removeScenario(id){
     if (state.currentId === id){ clearTimeout(autosaveTimer); autosaveTimer = null; }
@@ -5571,10 +5606,10 @@ window.GS_CONFIG = {
       return Promise.all(examples.map(function(ex){
         var ref = db.collection('projects').doc(ex.id);
         return ref.get().then(function(snap){
-          if (!snap.exists) return ref.set(Object.assign({}, ex.data, { kind:'scenario', projectId: DEFAULT_WS_ID, finJson:'', createdAt:now, updatedAt:now }));
+          if (!snap.exists) ref.set(Object.assign({}, ex.data, { kind:'scenario', projectId: DEFAULT_WS_ID, finJson:'', createdAt:now, updatedAt:now })).catch(function(){});
         });
       })).then(function(){
-        return flag.set({ at: now });
+        flag.set({ at: now }).catch(function(){});
       });
     });
   }
@@ -5585,7 +5620,7 @@ window.GS_CONFIG = {
     var ref = db.collection('meta').doc('library');
     return ref.get().then(function(snap){
       if (!snap.exists){
-        return ref.set({ tasks: LIBRARY_SEED, updatedAt: nowIso() });
+        ref.set({ tasks: LIBRARY_SEED, updatedAt: nowIso() }).catch(function(){});
       }
     });
   }
@@ -5602,13 +5637,14 @@ window.GS_CONFIG = {
       var wsData = { name: DEFAULT_WS_NAME, createdAt: now, updatedAt: now };
       state.workspaces.push(Object.assign({ id: DEFAULT_WS_ID }, wsData));
       ids[DEFAULT_WS_ID] = 1;
-      if (db) ensureWs = db.collection('workspaces').doc(DEFAULT_WS_ID).set(wsData).catch(function(){});
+      if (db) db.collection('workspaces').doc(DEFAULT_WS_ID).set(wsData).catch(function(){});
     }
     return ensureWs.then(function(){
       return Promise.all(orphans.map(function(p){
         p.projectId = DEFAULT_WS_ID;
         if (!db || isLocalId(p.id)) return null;
-        return db.collection('projects').doc(p.id).update({ projectId: DEFAULT_WS_ID }).catch(function(){});
+        db.collection('projects').doc(p.id).update({ projectId: DEFAULT_WS_ID }).catch(function(){});
+        return null;
       }));
     });
   }
@@ -5962,8 +5998,40 @@ window.GS_CONFIG = {
     b.title = s.error ? 'สาเหตุ: ' + s.error : (t ? 'บันทึกลง Google Sheets ล่าสุด ' + t : 'เชื่อมต่อ Google Sheets แล้ว');
     if (s.error) console.warn('Google Sheets:', s.error);
   }
+  // ข้อมูลล่าสุดจากชีตมาถึง (หลังแสดงข้อมูลจากเครื่องไปแล้ว) → อัปเดตหน้าจอ
+  function gsApplyFresh(data){
+    if (!state.loaded){ setTimeout(function(){ gsApplyFresh(data); }, 300); return; }
+    if (window.GSDB.busy() || state.dirty) return;   // มีการแก้ไขค้างอยู่ → ข้อมูลในเครื่องใหม่กว่า
+    var rows = function(c){ return (data[c] || []).map(function(d){ return Object.assign({ id: d.id }, d.data); }); };
+    state.projectsCache = rows('projects');
+    state.workspaces = rows('workspaces');
+    var lib = (data.meta || []).filter(function(d){ return d.id === 'library'; })[0];
+    if (lib && lib.data && Array.isArray(lib.data.tasks) && lib.data.tasks.length) state.library = lib.data.tasks;
+    if (state.wsId && !curWs()){ state.wsId = null; showPage('home'); return; }
+    if (state.page === 'home') renderHome();
+    else if (state.page === 'ws') renderWs();
+    else if (state.page === 'app' && state.currentId){
+      var a = document.activeElement;
+      var doc = state.projectsCache.find(function(p){ return p.id === state.currentId; });
+      if (doc && !(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))){
+        state.project = scenarioFromDoc(doc);
+        if (window.FinApp){ var fd = parseFin(doc); if (fd) window.FinApp.set(fd); }
+        state.parts = partsOf(doc);
+        applyParts(); renderAll(); syncProjectSelect();
+      }
+    }
+  }
+  function gsSnapshot(){
+    if (!state.loaded || !dbNs) return;
+    var pack = function(list){ return list.map(function(x){ var d = Object.assign({}, x); delete d.id; return { id: x.id, data: d, savedAt: '' }; }); };
+    var meta = [{ id: 'library', data: { tasks: state.library, updatedAt: nowIso() }, savedAt: '' }, { id: 'seedV2', data: { at: nowIso() }, savedAt: '' }];
+    window.GSDB.saveCache({ projects: pack(state.projectsCache), workspaces: pack(state.workspaces), meta: meta });
+  }
   if (window.GSDB && window.GSDB.enabled()){
     window.GSDB.onStatus(gsBadge);
+    window.GSDB.onFresh(gsApplyFresh);
+    window.addEventListener('pagehide', gsSnapshot);
+    document.addEventListener('visibilitychange', function(){ if (document.hidden) gsSnapshot(); });
     setInterval(gsPoll, Math.max(5, (window.GS_CONFIG && window.GS_CONFIG.pollSec) || 15) * 1000);
     var gsFlushOut = function(){
       try { flushAutosave(); } catch(e){}
